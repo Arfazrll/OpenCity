@@ -23,6 +23,7 @@ mod capture;
 mod clock;
 mod hud;
 mod preset;
+mod sky;
 mod vsync;
 
 use bevy::diagnostic::DiagnosticsStore;
@@ -109,12 +110,12 @@ fn main() {
     )
     .init_resource::<GraphicsPreset>()
     .add_plugins((clock::ClockPlugin::default(), vsync::VsyncPlugin))
-    .add_plugins(camera::CityCameraPlugin)
+    .add_plugins((camera::CityCameraPlugin, sky::SkyPlugin))
     .add_plugins((hud::HudPlugin, capture::CapturePlugin))
     .add_plugins(TerrainPlugin {
         params: PREVIEW_TERRAIN,
     })
-    .add_systems(Startup, (log_environment, spawn_placeholder_scene))
+    .add_systems(Startup, (log_environment, spawn_camera))
     .add_systems(Update, (switch_preset, sync_terrain_lod));
 
     if let Some(bookmark) = capture_bookmark {
@@ -161,12 +162,11 @@ const PREVIEW_EYE: Vec3 = Vec3::new(-3_750.0, 620.0, 1_450.0);
 /// Point the preview camera looks at.
 const PREVIEW_TARGET: Vec3 = Vec3::new(2_600.0, 180.0, -1_000.0);
 
-/// The camera and sun.
+/// Spawns the camera and places it at the preview viewpoint.
 ///
-/// Step 7 replaces the camera with the real city camera, and step 8 replaces the light with a
-/// sun driven by the game clock plus a procedural sky. Until then this is just enough to see
-/// the terrain: looking west-north-west across the Coastal preset's shoreline.
-fn spawn_placeholder_scene(mut commands: Commands, mut camera: ResMut<camera::CityCamera>) {
+/// The sun and sky live in [`sky`]; the camera's own transform is owned by
+/// [`camera::CityCameraPlugin`] from the first frame onward.
+fn spawn_camera(mut commands: Commands, mut camera: ResMut<camera::CityCamera>) {
     *camera = camera::CityCamera::from_eye_and_target(PREVIEW_EYE, PREVIEW_TARGET);
 
     commands.spawn((
@@ -185,38 +185,21 @@ fn spawn_placeholder_scene(mut commands: Commands, mut camera: ResMut<camera::Ci
             fov: 50.0_f32.to_radians(),
             ..default()
         }),
-        // Distance fog hides the streaming horizon, where terrain simply stops because it is
-        // beyond the preset's view distance or outside the Low preset's active area
-        // (blueprint 2.6.7). Without it the world ends at a hard edge against the background.
-        // Step 8's atmosphere will take over the far end of this.
-        DistanceFog {
-            color: Color::srgb(0.69, 0.76, 0.84),
-            falloff: FogFalloff::Linear {
-                start: 3_500.0,
-                end: 16_000.0,
-            },
-            ..default()
-        },
-        // Until the procedural sky arrives in step 8 there is nothing to light the shadowed
-        // side of the terrain, so slopes facing away from the sun would read as black.
-        // In Bevy 0.20 ambient light is a per-camera component, not a global resource.
-        AmbientLight {
-            color: Color::srgb(0.76, 0.84, 1.0),
-            brightness: 1_600.0,
-            ..default()
-        },
+        // Procedural sky. AtmosphereSettings requires Hdr, and the atmosphere's own aerial
+        // perspective replaces the distance fog that stood in for it, so there is no separate
+        // fog here any more. AtmosphereEnvironmentMapLight lights surfaces facing away from
+        // the sun with scattered sky light, which is what the manual ambient light was
+        // standing in for.
+        bevy::pbr::AtmosphereSettings::default(),
+        bevy::light::AtmosphereEnvironmentMapLight::default(),
+        // RAW_SUNLIGHT is about 100,000 lux, so the camera needs a daylight exposure or
+        // everything clips to white.
+        bevy::camera::Exposure { ev100: 13.0 },
+        bevy::core_pipeline::tonemapping::Tonemapping::AcesFitted,
+        bevy::post_process::bloom::Bloom::NATURAL,
         // The transform is owned by `CityCameraPlugin` from here on; this is only the first
         // frame's value, before the camera system runs.
         Transform::default(),
-    ));
-
-    commands.spawn((
-        DirectionalLight {
-            shadow_maps_enabled: true,
-            illuminance: 11_000.0,
-            ..default()
-        },
-        Transform::from_xyz(0.6, 1.3, 0.45).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 

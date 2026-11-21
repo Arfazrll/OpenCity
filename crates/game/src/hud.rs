@@ -14,7 +14,9 @@
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
+use crate::clock::Clock;
 use crate::preset::GraphicsPreset;
+use crate::sky;
 use crate::vsync::VsyncEnabled;
 
 /// Frames of history kept for the 1% low calculation.
@@ -105,6 +107,7 @@ fn update_hud(
     diagnostics: Res<DiagnosticsStore>,
     preset: Res<GraphicsPreset>,
     vsync: Res<VsyncEnabled>,
+    clock: Res<Clock>,
     terrain: Option<Res<render::TerrainRenderStats>>,
     world: Option<Res<render::TerrainWorld>>,
     mut query: Query<&mut TextSpan, With<HudText>>,
@@ -172,7 +175,34 @@ fn update_hud(
             ));
         }
 
-        out.push_str("\nF1-F4 preset   V vsync   F12 screenshot\n");
+        // Blueprint 2.7 asks the HUD for date, time and speed controls. Population and
+        // happiness join them once there is a simulation (M3).
+        let time = clock.time;
+        let hour = time.hour_of_day();
+        let minutes = ((hour - hour.trunc()) * 60.0) as u32;
+        out.push_str(&format!(
+            "\nday {}  {:02}:{:02}  {} ({})\nspeed   {}\n",
+            time.day(),
+            hour.trunc() as u32,
+            minutes,
+            sky::time_of_day_label(time),
+            if sky::is_daytime(hour) {
+                "sun up"
+            } else {
+                "sun down"
+            },
+            match clock.speed {
+                world_model::SimSpeed::Paused => "paused",
+                world_model::SimSpeed::X1 => "1x",
+                world_model::SimSpeed::X2 => "2x",
+                world_model::SimSpeed::X3 => "3x",
+            },
+        ));
+
+        out.push_str(
+            "\nWASD pan   QE rotate   RF tilt   wheel zoom\n\
+             F1-F4 preset   V vsync   Space pause   F12 screenshot\n",
+        );
 
         **span = out;
     }
