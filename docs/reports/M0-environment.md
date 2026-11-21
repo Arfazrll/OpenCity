@@ -32,6 +32,7 @@ must therefore default the dev build to **Low** and assume no headroom.
 | OS | Windows 11 Enterprise 64-bit, 10.0 Build **26200** |
 | DirectX | DirectX 12 (feature levels up to **12_2**) |
 | Driver model | WDDM 3.2 |
+| Graphics backend in use | **Vulkan** (measured at runtime, not DX12 as `dxdiag` suggested) |
 
 ### CPU
 
@@ -77,10 +78,48 @@ Two things matter here:
 An NPU (`0x7D1D`, Intel AI Boost, driver 32.0.100.4724) is also present. It is irrelevant to this
 project and will not be used.
 
-**Backend choice.** DirectX 12 with feature level 12_2 is confirmed available, so `wgpu` will select
-the **DX12** backend by default on this machine. Vulkan is normally also available on this Intel
-driver; M0 step 4 will print the actual adapter and backend `wgpu` picks at startup and that printed
-value — not this report — is the authoritative record.
+**Backend actually chosen: Vulkan.** DirectX 12 with feature level 12_2 is available, and I expected
+`wgpu` to pick DX12. **It picked Vulkan instead.** Measured at runtime on 2026-11-21 by the app's own
+startup logging (M0 step 4), which is the authoritative record:
+
+```text
+AdapterInfo {
+    name: "Intel(R) Graphics",
+    vendor: 32902,            // 0x8086 Intel
+    device: 32069,            // 0x7D45 Meteor Lake-U iGPU
+    device_type: IntegratedGpu,
+    driver: "Intel Corporation",
+    driver_info: "101.8332",
+    backend: Vulkan,
+    subgroup_min_size: 8,
+    subgroup_max_size: 32,
+}
+```
+
+This is exactly why blueprint 2.19 step 1 asks for the adapter to be printed at startup rather than
+inferred from `dxdiag`: what Windows advertises and what `wgpu` selects are different questions.
+
+Two capability lines from the same run are better news than expected for a Minimum-tier machine:
+
+```text
+INFO bevy_pbr::cluster: GPU clustering is supported on this device.
+INFO bevy_render::batching::gpu_preprocessing: GPU preprocessing is fully supported on this device.
+```
+
+GPU preprocessing and clustered lighting both working means Bevy's GPU-driven rendering path
+(blueprint 2.6.1) is available here, which matters for drawing 4,096 terrain chunks and, later, for
+night-time city lights.
+
+One harmless warning also appears every run and is worth recording so it is not mistaken for a fault
+later:
+
+```text
+WARN wgpu_hal::vulkan::instance: windows_read_data_files_in_registry:
+     Registry lookup failed to get layer manifest files.
+```
+
+That is the Vulkan loader finding no optional validation-layer manifests registered. It has no effect
+on rendering.
 
 ### Display
 
