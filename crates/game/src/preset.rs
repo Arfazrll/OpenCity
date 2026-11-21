@@ -99,6 +99,11 @@ pub struct PresetConfig {
     /// `Low` caps this to the central quarter of the plot, which is the escape hatch that
     /// makes a 16 km world tractable on an integrated GPU.
     pub active_half_extent_m: f32,
+    /// How aggressively terrain subdivides: a node splits when the camera is nearer than
+    /// `node_size * this`. The "LOD bias per preset" of blueprint 2.6.7. Applied from M0.
+    pub terrain_subdivide_factor: f32,
+    /// Distance at which terrain stops being drawn, in metres. Applied from M0.
+    pub terrain_view_distance_m: f32,
     /// Human-readable target this preset aims at, for the HUD and the milestone report.
     pub target: &'static str,
 }
@@ -137,6 +142,8 @@ impl GraphicsPreset {
                 building_view_distance_m: 4_000.0,
                 tier2_agent_cap: 5_000,
                 active_half_extent_m: LOW_PRESET_HALF_EXTENT_M,
+                terrain_subdivide_factor: 2.0,
+                terrain_view_distance_m: 8_000.0,
                 target: "1080p / 30 fps",
             },
             Self::Medium => PresetConfig {
@@ -150,6 +157,8 @@ impl GraphicsPreset {
                 building_view_distance_m: 8_000.0,
                 tier2_agent_cap: 20_000,
                 active_half_extent_m: PLOT_HALF_EXTENT_M,
+                terrain_subdivide_factor: 2.5,
+                terrain_view_distance_m: 12_000.0,
                 target: "1080p / 60 fps",
             },
             Self::High => PresetConfig {
@@ -163,6 +172,8 @@ impl GraphicsPreset {
                 building_view_distance_m: PLOT_HALF_EXTENT_M * 2.0,
                 tier2_agent_cap: 50_000,
                 active_half_extent_m: PLOT_HALF_EXTENT_M,
+                terrain_subdivide_factor: 3.0,
+                terrain_view_distance_m: 24_000.0,
                 target: "1080p / 60 fps",
             },
             Self::Ultra => PresetConfig {
@@ -178,6 +189,8 @@ impl GraphicsPreset {
                 building_view_distance_m: f32::INFINITY,
                 tier2_agent_cap: 100_000,
                 active_half_extent_m: PLOT_HALF_EXTENT_M,
+                terrain_subdivide_factor: 3.5,
+                terrain_view_distance_m: 24_000.0,
                 target: "1440p / 60 fps",
             },
         }
@@ -264,6 +277,30 @@ mod tests {
             assert!(pair[1].shadow_cascades >= pair[0].shadow_cascades);
             assert!(pair[1].tier2_agent_cap > pair[0].tier2_agent_cap);
             assert!(pair[1].render_scale >= pair[0].render_scale);
+            assert!(pair[1].terrain_subdivide_factor > pair[0].terrain_subdivide_factor);
+            assert!(pair[1].terrain_view_distance_m >= pair[0].terrain_view_distance_m);
+        }
+    }
+
+    #[test]
+    fn terrain_lod_settings_are_plausible_for_every_preset() {
+        for p in GraphicsPreset::ALL {
+            let c = p.config();
+            // A factor below 1 would never subdivide; above 6 would select thousands of nodes.
+            assert!(
+                (1.5..=6.0).contains(&c.terrain_subdivide_factor),
+                "{} subdivide factor {}",
+                p.name(),
+                c.terrain_subdivide_factor
+            );
+            // Terrain must be drawn further than buildings, or the skyline floats on nothing.
+            assert!(
+                c.terrain_view_distance_m >= c.building_view_distance_m.min(16_384.0),
+                "{}: terrain {} m, buildings {} m",
+                p.name(),
+                c.terrain_view_distance_m,
+                c.building_view_distance_m
+            );
         }
     }
 

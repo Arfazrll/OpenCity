@@ -105,6 +105,8 @@ fn update_hud(
     diagnostics: Res<DiagnosticsStore>,
     preset: Res<GraphicsPreset>,
     vsync: Res<VsyncEnabled>,
+    terrain: Option<Res<render::TerrainRenderStats>>,
+    world: Option<Res<render::TerrainWorld>>,
     mut query: Query<&mut TextSpan, With<HudText>>,
 ) {
     let fps = diagnostics
@@ -151,6 +153,24 @@ fn update_hud(
             config.target,
             if vsync.0 { "on" } else { "off" },
         ));
+
+        if let Some(terrain) = terrain.as_deref() {
+            out.push_str(&format!(
+                "\nterrain {} chunks ({} queued)\n  {} tris\n",
+                terrain.loaded_chunks, terrain.pending_chunks, terrain.triangles
+            ));
+        }
+        if let Some(world) = world.as_deref() {
+            out.push_str(&format!(
+                "  {} seed {}\n  generated in {:.2} s\n  {:.0} m to {:.0} m, {:.0}% water\n",
+                world.params.preset.name(),
+                world.params.seed,
+                world.generation_seconds,
+                world.stats.min_m,
+                world.stats.max_m,
+                world.stats.water_fraction * 100.0,
+            ));
+        }
 
         out.push_str("\nF1-F4 preset   V vsync   F12 screenshot\n");
 

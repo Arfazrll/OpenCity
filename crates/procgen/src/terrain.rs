@@ -166,21 +166,27 @@ impl Shape {
             // guarantees the eastern side is dry land: noise alone would leave the far inland
             // edge below sea level wherever the fBm happened to dip.
             TerrainPreset::Coastal => Self {
-                base_m: 35.0,
-                amplitude_m: 85.0,
+                base_m: 45.0,
+                amplitude_m: 120.0,
                 frequency: 3.0,
                 octaves: 6,
                 ridged_weight: 0.25,
                 warp_strength: 0.16,
                 coastal: true,
-                inland_lift_m: 90.0,
+                inland_lift_m: 230.0,
             },
         }
     }
 }
 
 /// How far inland the coastal lift takes to reach full height, in normalised plot units.
-const INLAND_LIFT_SPAN: f32 = 0.66;
+///
+/// 0.34 of a 16,384 m plot is 5.6 km, so the ground reaches its full height about 5.6 km
+/// inland of the shore. That keeps the interesting part of the terrain — beach, plain, then
+/// hills — inside the central quarter that the Low preset actually simulates
+/// (blueprint 2.6.8). A longer span puts the hills outside the Low preset's active area,
+/// where the target machine would never see them.
+const INLAND_LIFT_SPAN: f32 = 0.34;
 
 /// Seabed depth offshore on the Coastal preset, in metres.
 const SEABED_M: f32 = -38.0;

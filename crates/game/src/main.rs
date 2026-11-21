@@ -17,6 +17,7 @@
 //! (step 8), roads (step 9) and buildings (step 10). The placeholder camera below is a
 //! stand-in so the window is not empty; step 7 replaces it.
 
+mod bookmarks;
 mod capture;
 mod clock;
 mod hud;
@@ -27,40 +28,98 @@ use bevy::diagnostic::DiagnosticsStore;
 use bevy::prelude::*;
 use bevy::render::renderer::RenderAdapterInfo;
 use bevy::window::{PresentMode, PrimaryWindow, WindowResolution};
+use procgen::terrain::{TerrainParams, TerrainPreset};
+use render::terrain::{LodConfig, TerrainLodSettings, TerrainPlugin};
 
 use preset::GraphicsPreset;
 
+/// Terrain the M0 preview starts with.
+///
+/// Coastal rather than the Flat default: it is the only preset that shows sea, beach, lowland
+/// and hills in one view, which is what makes a preview build worth looking at. The other two
+/// are reachable by regenerating with a different preset once the city-creation screen exists
+/// (M1).
+const PREVIEW_TERRAIN: TerrainParams = TerrainParams {
+    seed: 20_261_121,
+    preset: TerrainPreset::Coastal,
+    sea_level_m: 0.0,
+    rivers: false,
+};
+
 fn main() {
-    App::new()
-        .add_plugins(
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "OpenCity - M0 preview".into(),
-                        present_mode: PresentMode::AutoVsync,
-                        // The dev laptop runs Windows at 150% scaling. Without this override
-                        // Bevy sizes the surface in logical pixels, so a window that looks
-                        // 1920x1200 would actually render 1280x800 and every FPS number in
-                        // the milestone report would be measured at the wrong resolution.
-                        resolution: WindowResolution::default().with_scale_factor_override(1.0),
-                        ..default()
-                    }),
-                    ..default()
-                })
-                // Bevy's own log line already carries the adapter, but at DEBUG level in some
-                // builds. Keep INFO so `log_adapter_info` below is not the only record.
-                .set(bevy::log::LogPlugin {
-                    level: bevy::log::Level::INFO,
-                    filter: "wgpu=warn,naga=warn".into(),
+    // Command line, parsed by hand rather than with a dependency: there are exactly two flags
+    // and both exist for the screenshot-review workflow, not for players.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+
+    if args.iter().any(|a| a == "--list-bookmarks") {
+        for name in bookmarks::names() {
+            println!("{name}");
+        }
+        return;
+    }
+
+    let capture_bookmark = match args.iter().position(|a| a == "--capture") {
+        None => None,
+        Some(index) => match args.get(index + 1) {
+            None => {
+                eprintln!(
+                    "--capture needs a bookmark name. Available: {}",
+                    bookmarks::names().join(", ")
+                );
+                std::process::exit(2);
+            }
+            Some(name) => match bookmarks::find(name) {
+                Some(bookmark) => Some(bookmark),
+                None => {
+                    eprintln!(
+                        "unknown bookmark '{name}'. Available: {}",
+                        bookmarks::names().join(", ")
+                    );
+                    std::process::exit(2);
+                }
+            },
+        },
+    };
+
+    let mut app = App::new();
+
+    app.add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "OpenCity - M0 preview".into(),
+                    present_mode: PresentMode::AutoVsync,
+                    // The dev laptop runs Windows at 150% scaling. Without this override
+                    // Bevy sizes the surface in logical pixels, so a window that looks
+                    // 1920x1200 would actually render 1280x800 and every FPS number in
+                    // the milestone report would be measured at the wrong resolution.
+                    resolution: WindowResolution::default().with_scale_factor_override(1.0),
                     ..default()
                 }),
-        )
-        .init_resource::<GraphicsPreset>()
-        .add_plugins((clock::ClockPlugin::default(), vsync::VsyncPlugin))
-        .add_plugins((hud::HudPlugin, capture::CapturePlugin))
-        .add_systems(Startup, (log_environment, spawn_placeholder_scene))
-        .add_systems(Update, switch_preset)
-        .run();
+                ..default()
+            })
+            // Bevy's own log line already carries the adapter, but at DEBUG level in some
+            // builds. Keep INFO so `log_adapter_info` below is not the only record.
+            .set(bevy::log::LogPlugin {
+                level: bevy::log::Level::INFO,
+                filter: "wgpu=warn,naga=warn".into(),
+                ..default()
+            }),
+    )
+    .init_resource::<GraphicsPreset>()
+    .add_plugins((clock::ClockPlugin::default(), vsync::VsyncPlugin))
+    .add_plugins((hud::HudPlugin, capture::CapturePlugin))
+    .add_plugins(TerrainPlugin {
+        params: PREVIEW_TERRAIN,
+    })
+    .add_systems(Startup, (log_environment, spawn_placeholder_scene))
+    .add_systems(Update, (switch_preset, sync_terrain_lod));
+
+    if let Some(bookmark) = capture_bookmark {
+        app.add_plugins(capture::AutoCapturePlugin { bookmark });
+    }
+
+    app.run();
 }
 
 /// Logs the graphics adapter actually chosen by wgpu (blueprint 2.19 step 1).
@@ -94,14 +153,81 @@ fn log_environment(adapter: Res<RenderAdapterInfo>, windows: Query<&Window, With
     info!("--- press F1-F4 to switch preset, V for vsync, F12 to screenshot ---");
 }
 
-/// A placeholder camera and light so the window shows something before terrain exists.
+/// A placeholder camera and sun.
 ///
-/// Step 7 replaces this with the real city camera, and step 8 with the real sun.
+/// Step 7 replaces the camera with the real city camera, and step 8 replaces the light with a
+/// sun driven by the game clock plus a procedural sky. Until then this is just enough to see
+/// the terrain: looking west-north-west across the Coastal preset's shoreline.
 fn spawn_placeholder_scene(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 400.0, 600.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Bevy's default far plane is 1,000 m. This world is 16 km across and the camera
+        // reaches 5 km altitude (decision log A12), so the default clips the entire landscape
+        // away and renders an empty screen. The far plane has to cover the plot diagonal,
+        // which is 23.2 km.
+        //
+        // The near plane goes to 1 m rather than the default 0.1 m: the street camera's
+        // closest approach is 2 m (blueprint 2.6.9), so 10 cm of near precision buys nothing
+        // and costs depth-buffer range.
+        Projection::Perspective(PerspectiveProjection {
+            near: 1.0,
+            far: 32_000.0,
+            fov: 50.0_f32.to_radians(),
+            ..default()
+        }),
+        // Distance fog hides the streaming horizon, where terrain simply stops because it is
+        // beyond the preset's view distance or outside the Low preset's active area
+        // (blueprint 2.6.7). Without it the world ends at a hard edge against the background.
+        // Step 8's atmosphere will take over the far end of this.
+        DistanceFog {
+            color: Color::srgb(0.69, 0.76, 0.84),
+            falloff: FogFalloff::Linear {
+                start: 3_500.0,
+                end: 16_000.0,
+            },
+            ..default()
+        },
+        // Until the procedural sky arrives in step 8 there is nothing to light the shadowed
+        // side of the terrain, so slopes facing away from the sun would read as black.
+        // In Bevy 0.20 ambient light is a per-camera component, not a global resource.
+        AmbientLight {
+            color: Color::srgb(0.76, 0.84, 1.0),
+            brightness: 1_600.0,
+            ..default()
+        },
+        Transform::from_xyz(-3_750.0, 620.0, 1_450.0)
+            .looking_at(Vec3::new(2_600.0, 180.0, -1_000.0), Vec3::Y),
     ));
+
+    commands.spawn((
+        DirectionalLight {
+            shadow_maps_enabled: true,
+            illuminance: 11_000.0,
+            ..default()
+        },
+        Transform::from_xyz(0.6, 1.3, 0.45).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+}
+
+/// Maps the active graphics preset onto the renderer's terrain LOD settings.
+///
+/// `render` deliberately does not know about [`GraphicsPreset`], so this is where the two meet.
+fn sync_terrain_lod(preset: Res<GraphicsPreset>, mut settings: ResMut<TerrainLodSettings>) {
+    if !preset.is_changed() && !settings.is_added() {
+        return;
+    }
+
+    let config = preset.config();
+    let wanted = TerrainLodSettings(LodConfig {
+        subdivide_factor: config.terrain_subdivide_factor,
+        max_view_distance_m: config.terrain_view_distance_m,
+        active_half_extent_m: config.active_half_extent_m,
+        ..LodConfig::default()
+    });
+
+    if *settings != wanted {
+        *settings = wanted;
+    }
 }
 
 /// Switches graphics preset at runtime with `F1`-`F4` (blueprint 2.19 step 4).

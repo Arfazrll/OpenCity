@@ -14,4 +14,12 @@
 //! - **Instancing** for repeated building modules, vehicles and vegetation.
 //! - **Impostors** for distant buildings, and headlight sprites for distant night traffic.
 
+//! # Modules
+//!
+//! - [`terrain`] - terrain generation, quadtree LOD and chunk streaming
+
 #![warn(missing_docs)]
+
+pub mod terrain;
+
+pub use terrain::{TerrainLodSettings, TerrainPlugin, TerrainRenderStats, TerrainWorld};

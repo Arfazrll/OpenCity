@@ -12,4 +12,5 @@ publish.workspace = true
 [dependencies]
 bevy = { workspace = true }
 world-model = { workspace = true }
+procgen = { workspace = true }
 tracing = { workspace = true }

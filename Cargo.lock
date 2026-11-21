@@ -5058,6 +5058,7 @@ name = "render"
 version = "0.0.0"
 dependencies = [
  "bevy",
+ "procgen",
  "tracing",
  "world-model",
 ]
