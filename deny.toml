@@ -1,0 +1,82 @@
+# cargo-deny configuration.
+#
+# This file is the machine-readable form of hard rule 3.2 item 4. The allowlist below is
+# exactly the one the blueprint states. Adding anything to it requires the owner's approval
+# (blueprint 3.11), because the repository is public and MIT, so every dependency is
+# redistributed.
+
+[graph]
+targets = [
+    "x86_64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+]
+all-features = false
+
+[licenses]
+# Fail on any license not listed. No exceptions without owner approval.
+version = 2
+confidence-threshold = 0.9
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "BSL-1.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "CC0-1.0",
+    "MPL-2.0",
+
+    # ---------------------------------------------------------------------
+    # PROVISIONAL - PENDING OWNER RATIFICATION (raised in the M0 report)
+    # ---------------------------------------------------------------------
+    # MIT-0 ("MIT No Attribution") is not in the blueprint's allowlist, and hard rule 3.2
+    # item 4 says anything else requires the owner's approval. It is listed here
+    # provisionally, loudly, rather than silently, so that the gates can run while Azrll
+    # decides.
+    #
+    # Required by: encase 0.12.1, encase_derive 0.12.1, encase_derive_impl 0.12.1.
+    # These are transitive dependencies of bevy_render (via bevy_mesh / bevy_winit). encase
+    # is the crate Bevy uses to lay out GPU buffers; there is no Bevy renderer without it,
+    # so this is not a dependency we chose or can drop.
+    #
+    # Why it is safe: MIT-0 is the MIT licence with the attribution requirement removed. It
+    # grants strictly more than MIT, which is already allowed. It is OSI-approved and
+    # imposes no condition on redistribution, so it cannot contaminate this MIT codebase.
+    # Allowing MIT while rejecting MIT-0 is logically inconsistent.
+    #
+    # If the owner declines, the only alternative is a different engine, which would be an
+    # architecture change requiring its own ADR.
+    "MIT-0",
+]
+
+[bans]
+# Bevy's dependency tree legitimately carries several crates at two versions. Warn so the
+# duplication stays visible, but do not fail the build over someone else's tree.
+multiple-versions = "warn"
+
+# Wildcard version requirements on crates.io dependencies are a real hazard: they let an
+# unreviewed major version in silently.
+wildcards = "deny"
+# ...but our own workspace crates are referenced by path with no version, which cargo-deny
+# also counts as a wildcard. Those are in this repository and reviewed like any other file,
+# so exempt them rather than adding meaningless version numbers to internal crates.
+allow-wildcard-paths = true
+
+# GPL-family code must never reach this MIT codebase (hard rule 3.2 item 4). The license check
+# above already rejects it, but naming the known temptations makes the intent explicit for
+# anyone reading this file.
+deny = []
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

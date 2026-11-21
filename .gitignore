@@ -1,0 +1,38 @@
+# Rust
+/target/
+**/target/
+*.pdb
+
+# Bevy / wgpu caches
+/.wgpu-trace/
+
+# Build + run output
+/screenshots/
+/saves/
+/timelapse/
+*.log
+
+# Mod data packs are optional and off by default (blueprint 2.12)
+/mods/*
+!/mods/.gitkeep
+
+# Environment reports that are machine-specific raw dumps are kept (dxdiag.txt,
+# systeminfo.txt) because the blueprint asks for them in docs/reports/.
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Profiling
+*.tracy
+perf.data*
+
+# Local secrets must never exist in this repo (blueprint 3.2 rule 5), but belt and braces:
+.env
+.env.*
+*.pem
+*.key

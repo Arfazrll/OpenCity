@@ -1,0 +1,4 @@
+# rustfmt defaults, per blueprint 3.9. Only the edition and width are stated explicitly so
+# that the result does not drift when rustfmt changes its own defaults.
+edition = "2024"
+max_width = 100

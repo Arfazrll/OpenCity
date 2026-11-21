@@ -1,0 +1,26 @@
+[package]
+name = "game"
+description = "OpenCity game binary: app setup, states, tools, cameras, save/load."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+world-model = { workspace = true }
+render = { workspace = true }
+procgen = { workspace = true }
+ui = { workspace = true }
+tracing = { workspace = true }
+
+[features]
+default = []
+
+# Dev-only tooling: inspectors, cheats and the preset hotkeys (blueprint 3.9).
+# `bevy/dynamic_linking` makes incremental builds far faster but requires the Bevy dylib next
+# to the executable, so it must never be enabled for a build handed to the owner.
+dev = ["bevy/dev", "bevy/dynamic_linking"]

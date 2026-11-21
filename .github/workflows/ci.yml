@@ -1,0 +1,110 @@
+name: CI
+
+# Quality gates from blueprint 3.8. `main` is always green (3.10), so these run on every push
+# and every pull request targeting it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Fail fast rather than retrying a flaky network for minutes.
+  CARGO_NET_RETRY: 2
+  RUSTUP_MAX_RETRIES: 2
+  # Keep CI builds lean; debug info is not useful here and costs cache space.
+  CARGO_PROFILE_DEV_DEBUG: 0
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Gates 1 and 2: formatting and lint. Cheap, so they run first and alone.
+  # ---------------------------------------------------------------------------
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component clippy
+      - name: Install Linux build dependencies
+        # Bevy needs these to build on Linux even when nothing opens a window.
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libwayland-dev libxkbcommon-dev libasound2-dev libudev-dev
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # ---------------------------------------------------------------------------
+  # Gate 3: tests, on both target platforms (blueprint 2.14 smoke row).
+  # ---------------------------------------------------------------------------
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libwayland-dev libxkbcommon-dev libasound2-dev libudev-dev
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@nextest
+      - run: cargo nextest run --workspace
+
+  # ---------------------------------------------------------------------------
+  # Gate 4: dependency licenses and bans. This one enforces hard rule 3.2 item 4,
+  # so it is not allowed to be advisory.
+  # ---------------------------------------------------------------------------
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses bans sources
+
+  # ---------------------------------------------------------------------------
+  # Asset provenance: every file under assets/ needs a LICENSES.md row
+  # (hard rule 3.2 item 2). M0 ships no binary assets, so this is cheap, but it
+  # must be wired up before the first asset lands rather than after.
+  # ---------------------------------------------------------------------------
+  assets:
+    name: asset licenses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Every asset must be listed in assets/LICENSES.md
+        run: |
+          missing=0
+          while IFS= read -r -d '' file; do
+            rel="${file#./}"
+            name="$(basename "$rel")"
+            if ! grep -qF "$name" assets/LICENSES.md; then
+              echo "::error file=$rel::no entry in assets/LICENSES.md"
+              missing=1
+            fi
+          done < <(find ./assets -type f ! -name 'LICENSES.md' -print0)
+          if [ "$missing" -ne 0 ]; then
+            echo "Unregistered assets found. See CONTRIBUTING.md."
+            exit 1
+          fi
+          echo "All assets registered."

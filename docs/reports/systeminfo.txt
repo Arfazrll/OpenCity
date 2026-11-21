@@ -1,0 +1,80 @@
+﻿
+Host Name:                     ITSA-HO11-0008
+OS Name:                       Microsoft Windows 11 Enterprise
+OS Version:                    10.0.26200 N/A Build 26200
+OS Manufacturer:               Microsoft Corporation
+OS Configuration:              Member Workstation
+OS Build Type:                 Multiprocessor Free
+Registered Owner:              star01
+Registered Organization:       
+Product ID:                    00330-80000-00000-AA443
+Original Install Date:         14-07-2026, 1:25:14 PM
+System Boot Time:              20-11-2026, 10:08:50 PM
+System Manufacturer:           LENOVO
+System Model:                  21M8S52Q00
+System Type:                   x64-based PC
+Processor(s):                  1 Processor(s) Installed.
+                               [01]: Intel64 Family 6 Model 170 Stepping 4 GenuineIntel ~1300 Mhz
+BIOS Version:                  LENOVO R2JET41W(1.18 ), 22-04-2025
+Windows Directory:             C:\WINDOWS
+System Directory:              C:\WINDOWS\system32
+Boot Device:                   \Device\HarddiskVolume1
+System Locale:                 en-us;English (United States)
+Input Locale:                  en-us;English (United States)
+Time Zone:                     (UTC+07:00) Bangkok, Hanoi, Jakarta
+Total Physical Memory:         15,849 MB
+Available Physical Memory:     2,849 MB
+Virtual Memory: Max Size:      31,699 MB
+Virtual Memory: Available:     5,857 MB
+Virtual Memory: In Use:        25,842 MB
+Page File Location(s):         C:\pagefile.sys
+Domain:                        SJNK.JKT01
+Logon Server:                  \\PRD-SVRDC3
+Hotfix(s):                     4 Hotfix(s) Installed.
+                               [01]: KB5087051
+                               [02]: KB5054156
+                               [03]: KB5094126
+                               [04]: KB5094135
+Network Card(s):               5 NIC(s) Installed.
+                               [01]: Fortinet Virtual Ethernet Adapter (NDIS 6.30)
+                                     Connection Name: Ethernet 2
+                                     Status:          Media disconnected
+                               [02]: Fortinet SSL VPN Virtual Ethernet Adapter
+                                     Connection Name: Ethernet 3
+                                     Status:          Hardware not present
+                               [03]: Intel(R) Wi-Fi 6E AX211 160MHz
+                                     Connection Name: Wi-Fi
+                                     DHCP Enabled:    Yes
+                                     DHCP Server:     192.168.1.1
+                                     IP address(es)
+                                     [01]: 192.168.1.13
+                                     [02]: fe80::4522:ef3a:a9d1:fabd
+                                     [03]: 2001:448a:2003:fd61:69d9:e222:2d8:7831
+                                     [04]: 2001:448a:2003:fd61:1c:8d89:866d:a0c
+                               [04]: Intel(R) Ethernet Connection (18) I219-V
+                                     Connection Name: Ethernet
+                                     Status:          Media disconnected
+                               [05]: Wintun Userspace Tunnel
+                                     Connection Name: Tailscale
+                                     DHCP Enabled:    No
+                                     IP address(es)
+                                     [01]: 169.254.83.107
+                                     [02]: fe80::5428:230:6263:3128
+Virtualization-based security: Status: Running
+                               Required Security Properties:
+                               Available Security Properties:
+                                     Base Virtualization Support
+                                     DMA Protection
+                                     UEFI Code Readonly
+                                     SMM Security Mitigations 1.0
+                                     Mode Based Execution Control
+                                     APIC Virtualization
+                               Services Configured:
+                                     Hypervisor enforced Code Integrity
+                               Services Running:
+                                     Credential Guard
+                                     Hypervisor enforced Code Integrity
+                               App Control for Business policy: Enforced
+                               App Control for Business user mode policy: Off
+                               Security Features Enabled:
+Hyper-V Requirements:          A hypervisor has been detected. Features required for Hyper-V will not be displayed.
