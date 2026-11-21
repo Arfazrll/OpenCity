@@ -35,6 +35,7 @@
 //! - [`coords`] - the index types for the three discrete layers
 //! - [`chunk`] - quadtree addressing for terrain level of detail
 //! - [`height`] - fixed-point terrain height encoding
+//! - [`heightfield`] - the full-plot elevation buffer and its interpolated lookups
 //! - [`ids`] - generational identifiers and the arena that issues them
 
 #![warn(missing_docs)]
@@ -42,11 +43,13 @@
 pub mod chunk;
 pub mod coords;
 pub mod height;
+pub mod heightfield;
 pub mod ids;
 pub mod plot;
 pub mod units;
 
 pub use chunk::QuadNode;
 pub use coords::{CellCoord, ChunkCoord, SampleCoord};
+pub use heightfield::Heightfield;
 pub use ids::{Id, IdArena};
 pub use units::{GameTime, Meters, Seconds, SimSpeed};

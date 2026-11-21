@@ -4792,8 +4792,8 @@ version = "0.0.0"
 dependencies = [
  "insta",
  "noise",
- "rand 0.10.4",
  "rand_chacha",
+ "rand_core 0.10.1",
  "rayon",
  "tracing",
  "world-model",

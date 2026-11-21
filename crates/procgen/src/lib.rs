@@ -15,4 +15,12 @@
 //! repository small and sidesteps asset licensing entirely. Output of this crate is MIT, like
 //! the code that produced it.
 
+//! # Modules
+//!
+//! - [`terrain`] - heightfield generation from a seed and a preset
+
 #![warn(missing_docs)]
+
+pub mod terrain;
+
+pub use terrain::{TerrainParams, TerrainPreset, TerrainStats};

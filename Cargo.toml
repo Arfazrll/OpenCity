@@ -55,7 +55,12 @@ ui = { path = "crates/ui" }
 noise = "0.9.0"
 
 # --- Deterministic RNG (blueprint 2.5.2) ---
+# `rand_core` carries the RngCore and SeedableRng traits; `rand` 0.10 no longer re-exports
+# RngCore at its root, so code that only needs raw deterministic words depends on rand_core
+# directly and skips `rand` entirely. `rand` is still here for the distributions that
+# sim-core will need from M3.
 rand = { version = "0.10.4", default-features = false, features = ["std"] }
+rand_core = "0.10.1"
 rand_chacha = "0.10.0"
 
 # --- Deterministic collections (no random-state hashers in sim) ---
