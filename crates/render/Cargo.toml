@@ -1,0 +1,15 @@
+[package]
+name = "render"
+description = "Bevy render plugins: terrain, water, buildings, roads, agents, overlays, post-fx."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+world-model = { workspace = true }
+tracing = { workspace = true }

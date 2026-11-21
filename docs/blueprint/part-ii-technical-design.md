@@ -114,11 +114,11 @@ D:\app\Others\OpenCity\
 | --- | --- |
 | Units / axes | 1 unit = 1 m, SI units everywhere, Y-up (Bevy convention). |
 | Region | Grid of city plots. ***Proposed default: 2 × 2 plots for v1.0*** (configurable up to 3 × 3). Only the active city is simulated in full; the others run an aggregate model (2.5.14). |
-| City plot | 16 km × 16 km = 256 km². Low preset may cap the playable area to the central 8 km × 8 km. |
-| Terrain heightfield | 4 m resolution (4,000 × 4,000 samples), stored as `u16` with 0.02 m steps covering −100 m to +1,210 m (about 32 MB per city). |
-| Render chunks | 256 m × 256 m (64 × 64 = 4,096 chunks per city), quadtree LOD (CDLOD-style), streamed by distance. |
-| Simulation grid layers | 32 m cells (500 × 500 = 250,000 cells per layer, `f32` = 1 MB/layer). Layers: air, ground and noise pollution, land value, crime/safety, coverage per service, happiness, traffic density. |
-| Large-world precision | `f32` error near 16 km is about 1–2 mm, enough for the city view but it causes jitter in first-person and region views. Use camera-relative rendering / floating origin (evaluate the `big_space` crate or a custom chunk-origin scheme). Agents on networks store `(edge_id, distance_along_edge)` instead of absolute positions. |
+| City plot | **16,384 m × 16,384 m** = 268 km², centred on the world origin (−8,192 m … +8,192 m on X and Z). Low preset may cap the playable area to the central 8,192 m × 8,192 m. *Corrected by [ADR 0001](../adr/0001-plot-extent-16384-metres.md) from a literal "16 km": 16,000 m cannot be tiled by 256 m chunks.* |
+| Terrain heightfield | 4 m resolution (**4,096 × 4,096** samples), stored as `u16` with 0.02 m steps covering −100 m to +1,210 m (33.6 MB per city). |
+| Render chunks | 256 m × 256 m (64 × 64 = 4,096 chunks per city), quadtree LOD (CDLOD-style), streamed by distance. 7 levels, 0 (one chunk) through 6 (whole plot). |
+| Simulation grid layers | 32 m cells (**512 × 512** = 262,144 cells per layer, `f32` = 1.05 MB/layer). Layers: air, ground and noise pollution, land value, crime/safety, coverage per service, happiness, traffic density. |
+| Large-world precision | `f32` error at the plot edge is 0.98 mm with the plot centred on the origin, half what an un-centred plot would give (both verified by test). Enough for the city view, but it causes jitter in first-person and region views. Use camera-relative rendering / floating origin (evaluate the `big_space` crate or a custom chunk-origin scheme). Agents on networks store `(edge_id, distance_along_edge)` instead of absolute positions. |
 | Identifiers | Stable generational IDs (`u32` index + `u32` generation) for buildings, road nodes/edges, citizens, vehicles, transit lines. |
 
 ## 2.5 Simulation core

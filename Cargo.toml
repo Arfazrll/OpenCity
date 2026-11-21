@@ -1,0 +1,109 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/world-model",
+    "crates/content",
+    "crates/pathfinding",
+    "crates/sim-core",
+    "crates/procgen",
+    "crates/render",
+    "crates/audio",
+    "crates/ui",
+    "crates/game",
+    "tools/bench",
+    "tools/replay",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+# None of these crates is a library for other people to depend on, and several have names
+# generic enough ("render", "ui", "audio", "content") that publishing them would be actively
+# antisocial. Marking them private also lets cargo-deny exempt internal path dependencies
+# from its wildcard check.
+publish = false
+rust-version = "1.99"
+license = "MIT"
+repository = "https://github.com/Arfazrll/OpenCity"
+authors = ["Azrll <https://github.com/Arfazrll>"]
+
+# Every third-party version is pinned here so all crates share one resolution.
+# Blueprint 2.2: "Every third-party crate must be compatible with the pinned Bevy
+# version." Changing the Bevy line requires an ADR (blueprint 3.11).
+[workspace.dependencies]
+# --- Engine ---
+# Feature profiles instead of Bevy's full default set, to cut compile time on a 15 W laptop.
+#   3d  = default_app + default_platform (winit, windowing, input) + 3d_bevy_render
+#         (bevy_render, bevy_pbr, bevy_core_pipeline, bevy_anti_alias, bevy_post_process,
+#         bevy_gltf) + scene + picking
+#   ui  = ui_bevy_render, for the radial menu and HUD
+# Deliberately NOT enabled: "2d" (nothing in this game is 2D) and "audio" (arrives in M3, see
+# blueprint 2.18). Verified against the 0.20.1 feature table before pinning.
+bevy = { version = "0.20.1", default-features = false, features = ["3d", "ui"] }
+
+# --- Internal crates ---
+world-model = { path = "crates/world-model" }
+content = { path = "crates/content" }
+pathfinding = { path = "crates/pathfinding" }
+sim-core = { path = "crates/sim-core" }
+procgen = { path = "crates/procgen" }
+render = { path = "crates/render" }
+audio = { path = "crates/audio" }
+ui = { path = "crates/ui" }
+
+# --- Noise / procgen ---
+noise = "0.9.0"
+
+# --- Deterministic RNG (blueprint 2.5.2) ---
+rand = { version = "0.10.4", default-features = false, features = ["std"] }
+rand_chacha = "0.10.0"
+
+# --- Deterministic collections (no random-state hashers in sim) ---
+rustc-hash = "2.1.3"
+indexmap = "2.14.2"
+smallvec = "1.16.6"
+
+# --- Parallelism ---
+rayon = "1.12.0"
+
+# --- Serialization ---
+serde = { version = "1.0.229", features = ["derive"] }
+ron = "0.12.3"
+postcard = { version = "1.1.3", features = ["alloc"] }
+zstd = "0.14.4"
+
+# --- Errors and logging ---
+thiserror = "2.0.21"
+anyhow = "1.0.104"
+tracing = "0.1.44"
+
+# --- Testing ---
+proptest = "1.12.0"
+insta = "1.49.0"
+criterion = "0.8.2"
+
+# ---------------------------------------------------------------------------
+# Profiles (blueprint 2.15: opt-level 1 for our crates, 3 for dependencies)
+# ---------------------------------------------------------------------------
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+# Default release profile: no LTO, so iteration on release builds stays bearable
+# on a 15 W laptop CPU.
+[profile.release]
+opt-level = 3
+lto = false
+codegen-units = 16
+debug = false
+strip = "debuginfo"
+
+# The profile for the final milestone binary handed to the owner.
+[profile.release-lto]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+panic = "abort"

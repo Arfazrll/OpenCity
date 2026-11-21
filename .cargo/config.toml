@@ -1,0 +1,34 @@
+# Build configuration.
+#
+# Profile opt-levels live in the workspace Cargo.toml, not here, so that `cargo` applies them
+# to the whole workspace regardless of which directory it is invoked from.
+#
+# ---------------------------------------------------------------------------
+# Deviation from blueprint 2.15 / 3.13: no rust-lld linker
+# ---------------------------------------------------------------------------
+# The blueprint says to "use the rust-lld linker where supported". On this toolchain it is not
+# supported from stable Rust. Verified on rustc 1.99.1 (2026-11-21):
+#
+#   * `linker = "rust-lld.exe"`          -> rust-lld.exe ships inside the sysroot at
+#                                           lib/rustlib/x86_64-pc-windows-msvc/bin/ but is NOT
+#                                           on PATH, so cargo cannot invoke it by name.
+#   * `-C linker-features=+lld`          -> "is unstable, and also requires -Z unstable-options"
+#   * `-C link-self-contained=+linker`   -> same, only y/yes/on/n/no/off/-linker are stable
+#   * `-Z linker-features=+lld`          -> "only accepted on the nightly compiler"
+#
+# Hardcoding the absolute sysroot path would work but is machine-specific and would break both
+# CI and the Linux build, so it is not worth it. Blueprint 3.9 requires Rust *stable*, and
+# moving to nightly for a compile-time optimisation would be an architecture change needing an
+# ADR (3.11) - not justified for a SHOULD.
+#
+# We therefore use the default MSVC link.exe. The real compile-time win on this machine comes
+# from `bevy/dynamic_linking` in the `dev` feature, which is enabled by the alias below.
+#
+# Revisit when `-C linker-features` stabilises, or at M10 when the Linux build lands (lld is
+# straightforward there via `-Clink-arg=-fuse-ld=lld`, once a CI runner with lld is in place).
+
+[alias]
+# Run the game with dev tooling and dynamic linking for fast iteration.
+# Dev builds only: dynamic linking requires the Bevy dylib next to the executable, so a build
+# handed to the owner must never use this.
+rung = "run -p game --features dev"

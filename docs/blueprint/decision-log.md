@@ -59,6 +59,14 @@ Record every change below with a link to the approving ADR. Nothing here may be 
 | --- | --- | --- | --- |
 | — | — | — | *(none yet)* |
 
+### Related ADRs that do not change a decision here
+
+- [**ADR 0001** — City plot extent is 16,384 m](../adr/0001-plot-extent-16384-metres.md) (draft).
+  Resolves an internal contradiction in Part II 2.4: a 16,000 m plot cannot be tiled by 256 m
+  chunks (16,000 / 256 = 62.5). **A19 is unaffected** — 16,384 m is 16 km to three significant
+  figures. Listed here so the change is visible from the authoritative document rather than only
+  in Part II.
+
 ### Notes added during M0 (measurement, not a decision change)
 
 - **A5 is now measured**, not TBD: Lenovo laptop, Intel Core Ultra 5 125U, 15.5 GB RAM, Intel
