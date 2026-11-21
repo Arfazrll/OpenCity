@@ -110,7 +110,8 @@ fn drive_auto_capture(
     mut commands: Commands,
     mut auto: ResMut<AutoCapture>,
     mut clock: ResMut<crate::clock::Clock>,
-    mut cameras: Query<&mut Transform, With<Camera3d>>,
+    cameras: Query<&Transform, With<Camera3d>>,
+    mut city_camera: ResMut<crate::camera::CityCamera>,
     terrain_stats: Option<Res<render::TerrainRenderStats>>,
     terrain_world: Option<Res<render::TerrainWorld>>,
     chunks: Query<(&render::terrain::TerrainChunk, &GlobalTransform)>,
@@ -126,9 +127,20 @@ fn drive_auto_capture(
         let transform = auto
             .bookmark
             .transform(|x, z| world.field.height_at_world(x, z));
-        for mut camera in &mut cameras {
-            *camera = transform;
-        }
+        // Set the camera *state*, not the transform: `CityCameraPlugin` recomputes the
+        // transform every frame and would overwrite it. `snap_to` also skips the easing, so
+        // the capture is not taken mid-glide.
+        let target = transform.translation + transform.forward() * 1_000.0;
+        let aimed = crate::camera::CityCamera::from_eye_and_target(
+            transform.translation,
+            aim_at_ground(
+                transform.translation,
+                transform.forward().as_vec3(),
+                |x, z| world.field.height_at_world(x, z),
+            )
+            .unwrap_or(target),
+        );
+        *city_camera = aimed;
         clock.time = auto.bookmark.game_time();
         // Freeze time so the capture is reproducible frame to frame.
         clock.speed = world_model::SimSpeed::Paused;
@@ -250,6 +262,54 @@ fn capture_on_f12(
         .observe(save_to_disk(path));
 }
 
+/// Finds where a view ray meets the ground, so a bookmark's focus point sits on the terrain.
+///
+/// Bookmarks are written as "stand here, look there", but the city camera orbits a focus point
+/// on the ground. Marching the ray down to the surface converts one into the other, and keeps
+/// the framing the bookmark author intended.
+///
+/// Returns `None` if the ray does not descend, or never reaches the ground within the plot.
+fn aim_at_ground(
+    eye: Vec3,
+    direction: Vec3,
+    ground_height_at: impl Fn(f32, f32) -> f32,
+) -> Option<Vec3> {
+    if direction.y >= -0.001 {
+        return None;
+    }
+
+    // March in fixed steps, then refine. Fixed stepping is robust on a heightfield that the
+    // ray may graze; a closed-form plane intersection would miss hills entirely.
+    const STEP_M: f32 = 40.0;
+    const MAX_DISTANCE_M: f32 = 40_000.0;
+
+    let mut travelled = 0.0_f32;
+    let mut previous = eye;
+    while travelled < MAX_DISTANCE_M {
+        travelled += STEP_M;
+        let point = eye + direction * travelled;
+        let ground = ground_height_at(point.x, point.z);
+        if point.y <= ground {
+            // Bisect between the last point above ground and this one below it.
+            let mut low = previous;
+            let mut high = point;
+            for _ in 0..24 {
+                let mid = (low + high) * 0.5;
+                if mid.y <= ground_height_at(mid.x, mid.z) {
+                    high = mid;
+                } else {
+                    low = mid;
+                }
+            }
+            let hit = (low + high) * 0.5;
+            return Some(Vec3::new(hit.x, ground_height_at(hit.x, hit.z), hit.z));
+        }
+        previous = point;
+    }
+
+    None
+}
+
 /// Logs what the camera and the terrain actually are at capture time.
 ///
 /// Added while diagnosing an empty 5 km screenshot: the chunk count said terrain was loaded,
@@ -258,7 +318,7 @@ fn capture_on_f12(
 /// most time.
 fn log_capture_diagnostics(
     name: &str,
-    cameras: &Query<&mut Transform, With<Camera3d>>,
+    cameras: &Query<&Transform, With<Camera3d>>,
     chunks: &Query<(&render::terrain::TerrainChunk, &GlobalTransform)>,
     projections: &Query<&Projection>,
 ) {

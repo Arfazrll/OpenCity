@@ -18,6 +18,7 @@
 //! stand-in so the window is not empty; step 7 replaces it.
 
 mod bookmarks;
+mod camera;
 mod capture;
 mod clock;
 mod hud;
@@ -108,6 +109,7 @@ fn main() {
     )
     .init_resource::<GraphicsPreset>()
     .add_plugins((clock::ClockPlugin::default(), vsync::VsyncPlugin))
+    .add_plugins(camera::CityCameraPlugin)
     .add_plugins((hud::HudPlugin, capture::CapturePlugin))
     .add_plugins(TerrainPlugin {
         params: PREVIEW_TERRAIN,
@@ -153,12 +155,20 @@ fn log_environment(adapter: Res<RenderAdapterInfo>, windows: Query<&Window, With
     info!("--- press F1-F4 to switch preset, V for vsync, F12 to screenshot ---");
 }
 
-/// A placeholder camera and sun.
+/// Initial viewpoint for the preview: over the sea looking inland across the shoreline.
+const PREVIEW_EYE: Vec3 = Vec3::new(-3_750.0, 620.0, 1_450.0);
+
+/// Point the preview camera looks at.
+const PREVIEW_TARGET: Vec3 = Vec3::new(2_600.0, 180.0, -1_000.0);
+
+/// The camera and sun.
 ///
 /// Step 7 replaces the camera with the real city camera, and step 8 replaces the light with a
 /// sun driven by the game clock plus a procedural sky. Until then this is just enough to see
 /// the terrain: looking west-north-west across the Coastal preset's shoreline.
-fn spawn_placeholder_scene(mut commands: Commands) {
+fn spawn_placeholder_scene(mut commands: Commands, mut camera: ResMut<camera::CityCamera>) {
+    *camera = camera::CityCamera::from_eye_and_target(PREVIEW_EYE, PREVIEW_TARGET);
+
     commands.spawn((
         Camera3d::default(),
         // Bevy's default far plane is 1,000 m. This world is 16 km across and the camera
@@ -195,8 +205,9 @@ fn spawn_placeholder_scene(mut commands: Commands) {
             brightness: 1_600.0,
             ..default()
         },
-        Transform::from_xyz(-3_750.0, 620.0, 1_450.0)
-            .looking_at(Vec3::new(2_600.0, 180.0, -1_000.0), Vec3::Y),
+        // The transform is owned by `CityCameraPlugin` from here on; this is only the first
+        // frame's value, before the camera system runs.
+        Transform::default(),
     ));
 
     commands.spawn((
